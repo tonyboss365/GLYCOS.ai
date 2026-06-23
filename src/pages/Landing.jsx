@@ -250,15 +250,7 @@ export const Landing = ({ onNavigate, loaderComplete = true }) => {
       pinTimeline.to({}, { duration: 1.2 }, 7.8);
     }
 
-    // 4. Auto-navigate to diagnosis on scrolling past the footer
-    ScrollTrigger.create({
-      trigger: 'footer',
-      start: 'bottom bottom-=20',
-      onEnter: () => {
-        onNavigate('diagnosis');
-      },
-      once: true
-    });
+    // ScrollTrigger auto-navigation removed to prevent accidental redirects, especially on mobile.
 
     return () => {
       ScrollTrigger.getAll().forEach(t => t.kill());
