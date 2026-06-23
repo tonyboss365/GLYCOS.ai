@@ -65,7 +65,7 @@ export function parseMarkdownToJSX(text) {
   });
 }
 
-export const TexttypeReveal = ({ text, speed = 8 }) => {
+export const TexttypeReveal = ({ text, speed = 8, onUpdate }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [cursorVisible, setCursorVisible] = useState(true);
@@ -82,6 +82,10 @@ export const TexttypeReveal = ({ text, speed = 8 }) => {
     const timer = setTimeout(() => {
       setDisplayedText((prev) => prev + text[currentIndex]);
       setCurrentIndex((prev) => prev + 1);
+
+      if (onUpdate) {
+        onUpdate();
+      }
 
       // Play soft sound click
       try {
@@ -105,7 +109,7 @@ export const TexttypeReveal = ({ text, speed = 8 }) => {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [text, currentIndex, speed]);
+  }, [text, currentIndex, speed, onUpdate]);
 
   useEffect(() => {
     const blinkInterval = setInterval(() => {

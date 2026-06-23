@@ -553,35 +553,105 @@ export const Diagnosis = ({ onQuestionIndexChange }) => {
     return () => clearTimeout(timer);
   }, [inputs]);
 
-  const runPrediction = () => {
+  const fetchAiRiskScore = async (currentInputs) => {
+    try {
+      const token = import.meta.env.VITE_AZURE_API_KEY || '';
+      if (!token) return null;
+
+      const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          messages: [
+            { 
+              role: 'system', 
+              content: 'You are a highly precise clinical endocrine diagnostics engine. Compute the Type 2 Diabetes susceptibility risk percentage (0 to 100) based on the patient biomarkers. Return ONLY a single JSON object matching this schema: {"riskScore": <number>}' 
+            },
+            { 
+              role: 'user', 
+              content: `Compute risk for patient with these biomarkers:
+- Pregnancies: ${currentInputs.pregnancies}
+- Glucose: ${currentInputs.glucose} mg/dL
+- Blood Pressure: ${currentInputs.bloodPressure} mmHg
+- Skin Thickness: ${currentInputs.skinThickness} mm
+- Insulin: ${currentInputs.insulin} μU/mL
+- BMI: ${currentInputs.bmi}
+- Pedigree Score: ${currentInputs.diabetesPedigree}
+- Age: ${currentInputs.age}
+
+Ensure a baseline risk is kept (minimum 2% risk, even if all metrics are lowest, as zero absolute metabolic risk is clinically impossible). Return ONLY JSON.` 
+            }
+          ],
+          model: 'gpt-4o-mini',
+          temperature: 0.1,
+          max_tokens: 50
+        })
+      });
+
+      if (!response.ok) return null;
+      const data = await response.json();
+      const content = data.choices[0].message.content.trim();
+      const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
+      const result = JSON.parse(cleanJson);
+      if (typeof result.riskScore === 'number') {
+        return Math.round(result.riskScore);
+      }
+      return null;
+    } catch (e) {
+      console.error("AI risk score fetch failed:", e);
+      return null;
+    }
+  };
+
+  const runPrediction = async () => {
     setIsAnalyzing(true);
-    // Play interaction click on click
     audio.playClick();
     
-    // 3500ms loading effect for clinical realism
-    setTimeout(() => {
-      const score = predict(inputs);
-      const rawContribs = getContributions(inputs);
-      
-      // Convert contributions object to structured array for FeatureChart
-      const formattedContribs = Object.entries(rawContribs).map(([name, value]) => ({
-        name,
-        value,
-      }));
+    // Start fetching AI risk score asynchronously
+    const aiScorePromise = fetchAiRiskScore(inputs);
 
-      setRiskScore(score);
-      setContributions(formattedContribs);
-      setLastPredictedInputs({ ...inputs });
-      setHasRun(true);
-      setIsAnalyzing(false);
-      setActiveStage('results');
-      
-      // Play prediction success fanfare!
-      audio.playFanfare();
+    // Wait for the 3500ms animation loader
+    await new Promise((resolve) => setTimeout(resolve, 3500));
 
-      // Scroll top smoothly after entering results stage
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 3500);
+    // Resolve AI score
+    let score = null;
+    try {
+      score = await aiScorePromise;
+    } catch (e) {
+      console.error("AI prediction promise rejected:", e);
+    }
+
+    // Fallback to local prediction if AI score is not available
+    if (score === null || isNaN(score)) {
+      score = predict(inputs);
+    }
+
+    // Clamp score to clinically realistic bounds [2%, 98%]
+    score = Math.max(2, Math.min(98, score));
+
+    const rawContribs = getContributions(inputs);
+    
+    // Convert contributions object to structured array for FeatureChart
+    const formattedContribs = Object.entries(rawContribs).map(([name, value]) => ({
+      name,
+      value,
+    }));
+
+    setRiskScore(score);
+    setContributions(formattedContribs);
+    setLastPredictedInputs({ ...inputs });
+    setHasRun(true);
+    setIsAnalyzing(false);
+    setActiveStage('results');
+    
+    // Play prediction success fanfare!
+    audio.playFanfare();
+
+    // Scroll top smoothly after entering results stage
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const inputsDiverged =

@@ -23,6 +23,10 @@ export const ClinicalChat = ({ inputs, riskScore, contributions }) => {
   }, [inputs, riskScore]);
 
   // Scroll to bottom on new messages (avoiding auto-scroll on initial load)
+  const handleTypeScroll = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  };
+
   useEffect(() => {
     if (messages.length > 1 || isLoading) {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -175,7 +179,7 @@ Guidelines:
                 }`}>
                   {isAi ? (
                     idx === messages.length - 1 ? (
-                      <TexttypeReveal text={msg.content} />
+                      <TexttypeReveal text={msg.content} onUpdate={handleTypeScroll} />
                     ) : (
                       <div className="font-inter text-xs leading-relaxed">{parseMarkdownToJSX(msg.content)}</div>
                     )
