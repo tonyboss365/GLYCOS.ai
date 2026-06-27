@@ -134,12 +134,18 @@ const generateLocalInsights = (inputs) => {
   return insights.slice(0, 4);
 };
 
-export const InsightCard = ({ inputs, risk }) => {
+export const InsightCard = ({ inputs, risk, aiInsights }) => {
   const [insights, setInsights] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isAI, setIsAI] = useState(false);
 
   useEffect(() => {
+    if (aiInsights && aiInsights.length > 0) {
+      setInsights(aiInsights);
+      setIsAI(true);
+      return;
+    }
+
     const fetchAIInsights = async () => {
       setLoading(true);
       setIsAI(false);

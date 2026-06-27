@@ -84,7 +84,7 @@ export const TexttypeReveal = ({ text, speed = 8, onUpdate }) => {
       setCurrentIndex((prev) => prev + 1);
 
       if (onUpdate) {
-        onUpdate();
+        setTimeout(onUpdate, 0);
       }
 
       // Play soft sound click

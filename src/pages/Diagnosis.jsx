@@ -145,6 +145,7 @@ export const Diagnosis = ({ onQuestionIndexChange }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [riskScore, setRiskScore] = useState(null);
   const [contributions, setContributions] = useState(null);
+  const [aiInsights, setAiInsights] = useState(null);
   const [activeStage, setActiveStage] = useState('input'); // 'input' or 'results'
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1);
   const [hasRun, setHasRun] = useState(false);
@@ -163,7 +164,21 @@ export const Diagnosis = ({ onQuestionIndexChange }) => {
     }
   }, [currentQuestionIndex, activeStage, onQuestionIndexChange]);
 
-  const downloadHtmlReport = () => {
+  const loadHtml2Pdf = () => {
+    return new Promise((resolve, reject) => {
+      if (window.html2pdf) {
+        resolve(window.html2pdf);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = () => resolve(window.html2pdf);
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  };
+
+  const downloadPdfReport = async () => {
     // Generate a random Reference ID
     const refId = `SMC-${Math.floor(100000 + Math.random() * 900000)}`;
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -174,9 +189,9 @@ export const Diagnosis = ({ onQuestionIndexChange }) => {
 
     // Generate list of contributions
     const insightsHtml = contributions ? contributions.map(item => `
-      <div class="insight-row" style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dotted var(--border-soft);">
+      <div class="insight-row" style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dotted rgba(47, 48, 32, 0.12);">
         <span style="font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">${item.name}</span>
-        <span style="color: ${item.value > 0 ? '#D96846' : '#596235'}; font-weight: bold; font-family: 'JetBrains Mono', monospace;">
+        <span style="color: ${item.value > 0 ? '#D96846' : '#596235'}; font-weight: bold; font-family: 'JetBrains Mono', monospace;" class="${item.value > 0 ? 'highlight-danger' : 'highlight-success'}">
           ${item.value > 0 ? '+' : ''}${item.value.toFixed(4)}
         </span>
       </div>
@@ -210,278 +225,140 @@ export const Diagnosis = ({ onQuestionIndexChange }) => {
 
       return `
         <tr>
-          <td style="padding: 10px 8px; border-bottom: 1px solid var(--border-soft);"><strong>${formattedLabel}</strong></td>
-          <td style="padding: 10px 8px; border-bottom: 1px solid var(--border-soft); font-family: 'JetBrains Mono', monospace;">${val}</td>
-          <td style="padding: 10px 8px; border-bottom: 1px solid var(--border-soft); font-family: 'JetBrains Mono', monospace; color: var(--text-3);">${normalRange}</td>
-          <td style="padding: 10px 8px; border-bottom: 1px solid var(--border-soft); color: ${isDanger ? '#D96846' : '#596235'}; font-weight: bold; text-transform: uppercase;">
+          <td style="padding: 10px 8px; border-bottom: 1px solid rgba(47, 48, 32, 0.12);"><strong>${formattedLabel}</strong></td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid rgba(47, 48, 32, 0.12); font-family: 'JetBrains Mono', monospace;">${val}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid rgba(47, 48, 32, 0.12); font-family: 'JetBrains Mono', monospace; color: #596235;" class="highlight-success">${normalRange}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid rgba(47, 48, 32, 0.12); color: ${isDanger ? '#D96846' : '#596235'}; font-weight: bold; text-transform: uppercase;" class="${isDanger ? 'highlight-danger' : 'highlight-success'}">
             ${isDanger ? 'ELEVATED' : 'NORMAL'}
           </td>
         </tr>
       `;
     }).join('');
 
-    const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GLYCOS Metabolic Intelligence Report - ${refId}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --void:          #CDCBD6;   
-      --surface-1:     #FFFFFF;
-      --surface-2:     #F3F2F5;  
-      --surface-3:     #E5E4EA;
-      --accent:        #D96846;   
-      --text-1:        #2F3020;         
-      --text-2:        rgba(47, 48, 32, 0.85);
-      --text-3:        #596235;   
-      --text-4:        rgba(47, 48, 32, 0.25);
-      --border-soft:   rgba(47, 48, 32, 0.12);
-    }
-    
-    body {
-      background-color: var(--void);
-      color: var(--text-1);
-      font-family: 'Inter', sans-serif;
-      margin: 0;
-      padding: 40px 20px;
-      display: flex;
-      justify-content: center;
-    }
+    const htmlContent = `
+      <div class="clinical-report-container" style="color-scheme: light !important; padding: 40px; background: white; color: #2F3020; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; gap: 30px; border: 1px solid rgba(47, 48, 32, 0.12);">
+        <style>
+          .clinical-report-container {
+            color-scheme: light !important;
+            background: #ffffff !important;
+            color: #2F3020 !important;
+            font-family: 'Inter', sans-serif !important;
+          }
+          .clinical-report-container h1, 
+          .clinical-report-container h2, 
+          .clinical-report-container h3 {
+            color: #2F3020 !important;
+          }
+          .clinical-report-container td, 
+          .clinical-report-container th, 
+          .clinical-report-container p, 
+          .clinical-report-container strong,
+          .clinical-report-container span {
+            color: #2F3020 !important;
+          }
+          .clinical-report-container table {
+            color: #2F3020 !important;
+          }
+          .clinical-report-container .highlight-danger {
+            color: #D96846 !important;
+          }
+          .clinical-report-container .highlight-success {
+            color: #596235 !important;
+          }
+          .clinical-report-container .highlight-warning {
+            color: #E67E22 !important;
+          }
+        </style>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(47, 48, 32, 0.12); padding-bottom: 20px;">
+          <div>
+            <h1 style="font-family: 'Syne', sans-serif; font-weight: 800; font-size: 24px; margin: 0; text-transform: uppercase; color: #2F3020; letter-spacing: -0.02em;">GLYCOS CLINICAL REPORT</h1>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #596235; margin-top: 5px; text-transform: uppercase;" class="highlight-success">Official Patient Assessment Ingestion</div>
+          </div>
+        </div>
 
-    .report-container {
-      max-width: 800px;
-      width: 100%;
-      background: var(--surface-1);
-      border: 1px solid var(--border-soft);
-      padding: 40px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.06);
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      gap: 30px;
-    }
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <div style="font-size: 16px; font-weight: bold; color: #2F3020;">METABOLIC PROFILE</div>
+            <div style="font-size: 11px; color: #596235; font-family: 'JetBrains Mono', monospace; margin-top: 4px;" class="highlight-success">SYSTEM PROTOCOL: PIMA_AI_BACKEND_V3</div>
+          </div>
+          <table style="font-family: 'JetBrains Mono', monospace; font-size: 10px; text-align: right; color: rgba(47, 48, 32, 0.85);">
+            <tr><td><strong>REPORT DATE:</strong></td><td>${dateStr}</td></tr>
+            <tr><td><strong>REF ID:</strong></td><td>${refId}</td></tr>
+            <tr><td><strong>STATUS:</strong></td><td>COMPLETED</td></tr>
+          </table>
+        </div>
 
-    /* Print utility floating action */
-    .print-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border-soft);
-      padding-bottom: 20px;
-    }
+        <!-- Risk Summary Card -->
+        <div style="border: 1px solid rgba(47, 48, 32, 0.12); padding: 24px; display: flex; flex-direction: column; gap: 15px;">
+          <h2 style="font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; text-transform: uppercase; color: #2F3020; margin: 0; border-bottom: 1px solid rgba(47, 48, 32, 0.12); padding-bottom: 8px;">Score & Classification</h2>
+          <div style="display: flex; align-items: center; gap: 30px; margin: 10px 0;">
+            <div style="font-family: 'Syne', sans-serif; font-size: 56px; font-weight: 800; line-height: 1; color: ${riskColor};" class="${riskScore < 30 ? 'highlight-success' : riskScore < 60 ? 'highlight-warning' : 'highlight-danger'}">${riskScore}%</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; border: 1px solid ${riskColor}; padding: 6px 12px; text-transform: uppercase; color: ${riskColor};" class="${riskScore < 30 ? 'highlight-success' : riskScore < 60 ? 'highlight-warning' : 'highlight-danger'}">${riskStatus}</div>
+          </div>
+          <div style="font-size: 10px; color: rgba(47, 48, 32, 0.85); line-height: 1.6;">
+            The above susceptibility index is calculated using a clinical-grade AI inference engine. Under clinical guidelines, scores exceeding 40% warrant further diagnostic follow-up.
+          </div>
+        </div>
 
-    .btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      font-family: 'Inter', sans-serif;
-      font-weight: 600;
-      font-size: 12px;
-      cursor: pointer;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      transition: opacity 0.2s;
-    }
+        <!-- Biomarkers Profile Table -->
+        <div style="border: 1px solid rgba(47, 48, 32, 0.12); padding: 24px; display: flex; flex-direction: column; gap: 15px;">
+          <h2 style="font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; text-transform: uppercase; color: #2F3020; margin: 0; border-bottom: 1px solid rgba(47, 48, 32, 0.12); padding-bottom: 8px;">Biomarker Calibration Details</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+            <thead>
+              <tr>
+                <th style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #596235; text-transform: uppercase; padding: 10px 8px; border-bottom: 1px solid rgba(47, 48, 32, 0.12);" class="highlight-success">Biomarker Factor</th>
+                <th style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #596235; text-transform: uppercase; padding: 10px 8px; border-bottom: 1px solid rgba(47, 48, 32, 0.12);" class="highlight-success">Ingested Value</th>
+                <th style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #596235; text-transform: uppercase; padding: 10px 8px; border-bottom: 1px solid rgba(47, 48, 32, 0.12);" class="highlight-success">Clinical Ref Range</th>
+                <th style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #596235; text-transform: uppercase; padding: 10px 8px; border-bottom: 1px solid rgba(47, 48, 32, 0.12);" class="highlight-success">Status Classification</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${biomarkerRows}
+            </tbody>
+          </table>
+        </div>
 
-    .btn:hover {
-      opacity: 0.9;
-    }
+        <!-- Feature Contributions -->
+        <div style="border: 1px solid rgba(47, 48, 32, 0.12); padding: 24px; display: flex; flex-direction: column; gap: 15px;">
+          <h2 style="font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; text-transform: uppercase; color: #2F3020; margin: 0; border-bottom: 1px solid rgba(47, 48, 32, 0.12); padding-bottom: 8px;">Biomarker Contribution Weights</h2>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            ${insightsHtml}
+          </div>
+        </div>
 
-    .header-section {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-
-    .brand-title {
-      font-family: 'Syne', sans-serif;
-      font-weight: 800;
-      font-size: 24px;
-      color: var(--text-1);
-      margin: 0;
-      letter-spacing: -0.02em;
-    }
-
-    .subtitle {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      color: var(--text-3);
-      margin-top: 5px;
-      text-transform: uppercase;
-    }
-
-    .meta-table {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      text-align: right;
-      color: var(--text-2);
-    }
-
-    .card {
-      border: 1px solid var(--border-soft);
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
-
-    .card-title {
-      font-family: 'Syne', sans-serif;
-      font-weight: 700;
-      font-size: 14px;
-      text-transform: uppercase;
-      color: var(--text-1);
-      margin: 0;
-      border-bottom: 1px solid var(--border-soft);
-      padding-bottom: 8px;
-    }
-
-    .risk-score-display {
-      display: flex;
-      align-items: center;
-      gap: 30px;
-      margin: 10px 0;
-    }
-
-    .risk-value {
-      font-family: 'Syne', sans-serif;
-      font-size: 56px;
-      font-weight: 800;
-      line-height: 1;
-    }
-
-    .risk-status-tag {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      font-weight: 700;
-      border: 1px solid currentColor;
-      padding: 6px 12px;
-      text-transform: uppercase;
-    }
-
-    table.biomarker-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-      text-align: left;
-    }
-
-    table.biomarker-table th {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      color: var(--text-3);
-      text-transform: uppercase;
-      padding: 10px 8px;
-      border-bottom: 1px solid var(--border-soft);
-    }
-
-    .disclaimer {
-      font-size: 10px;
-      color: var(--text-2);
-      line-height: 1.6;
-    }
-
-    @media print {
-      body {
-        background-color: white;
-        padding: 0;
-      }
-      .report-container {
-        box-shadow: none;
-        border: none;
-        padding: 0;
-      }
-      .print-actions {
-        display: none;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="report-container">
-    <div class="print-actions">
-      <div>
-        <h1 class="brand-title">GLYCOS CLINICAL REPORT</h1>
-        <div class="subtitle">Official Patient Assessment Ingestion</div>
+        <!-- Medical Disclaimer -->
+        <div style="border: 1px solid rgba(47, 48, 32, 0.12); padding: 24px; display: flex; flex-direction: column; gap: 15px; background: #F3F2F5;">
+          <h2 style="font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; text-transform: uppercase; color: #2F3020; margin: 0; border: none; padding: 0;">Clinical Notice & Disclaimer</h2>
+          <div style="font-size: 10px; color: rgba(47, 48, 32, 0.85); line-height: 1.6;">
+            This document represents an analytical prediction and is not a formal medical diagnosis. GLYCOS-ai is a metabolic intelligence demonstration tool. Values are processed via AI model validation accuracy constraints. Consult a licensed medical practitioner for clinical evaluation.
+          </div>
+        </div>
       </div>
-      <button class="btn" onclick="window.print()">Print / Save as PDF</button>
-    </div>
+    `;
 
-    <div class="header-section">
-      <div>
-        <div style="font-size: 16px; font-weight: bold; color: var(--text-1);">METABOLIC PROFILE</div>
-        <div style="font-size: 11px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; margin-top: 4px;">SYSTEM PROTOCOL: PIMA_GRADIENT_DESCENT_V2</div>
-      </div>
-      <table class="meta-table">
-        <tr><td><strong>REPORT DATE:</strong></td><td>${dateStr}</td></tr>
-        <tr><td><strong>REF ID:</strong></td><td>${refId}</td></tr>
-        <tr><td><strong>STATUS:</strong></td><td>COMPLETED</td></tr>
-      </table>
-    </div>
+    try {
+      const html2pdf = await loadHtml2Pdf();
 
-    <!-- Risk Summary Card -->
-    <div class="card">
-      <h2 class="card-title">Score & Classification</h2>
-      <div class="risk-score-display">
-        <div class="risk-value" style="color: ${riskColor}">${riskScore}%</div>
-        <div class="risk-status-tag" style="color: ${riskColor}; border-color: ${riskColor};">${riskStatus}</div>
-      </div>
-      <div class="disclaimer">
-        The above susceptibility index is calculated using a multivariate logistic regression classifier trained on PIMA metabolic factors. Under clinical guidelines, scores exceeding 40% warrant further diagnostic follow-up.
-      </div>
-    </div>
+      const opt = {
+        margin:       15,
+        filename:     `glycos_metabolic_report_${refId.toLowerCase()}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { 
+          scale: 2, 
+          useCORS: true, 
+          letterRendering: true, 
+          backgroundColor: '#ffffff',
+          scrollY: 0,
+          scrollX: 0
+        },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
 
-    <!-- Biomarkers Profile Table -->
-    <div class="card">
-      <h2 class="card-title">Biomarker Calibration Details</h2>
-      <table class="biomarker-table">
-        <thead>
-          <tr>
-            <th>Biomarker Factor</th>
-            <th>Ingested Value</th>
-            <th>Clinical Ref Range</th>
-            <th>Status Classification</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${biomarkerRows}
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Feature Contributions -->
-    <div class="card">
-      <h2 class="card-title">Biomarker Contribution Weights</h2>
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        ${insightsHtml}
-      </div>
-    </div>
-
-    <!-- Medical Disclaimer -->
-    <div class="card" style="background: var(--surface-2);">
-      <h2 class="card-title" style="border: none; padding: 0;">Clinical Notice & Disclaimer</h2>
-      <div class="disclaimer">
-        This document represents an analytical prediction and is not a formal medical diagnosis. GLYCOS-ai is a metabolic intelligence demonstration tool. Values are processed locally and are subject to model validation accuracy constraints (~77% on Pima Indian datasets). Consult a licensed medical practitioner for clinical evaluation.
-      </div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-    // Create a blob and trigger a client-side download of the HTML file
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `glycos_metabolic_report_${refId.toLowerCase()}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      await html2pdf().from(htmlContent).set(opt).save();
+    } catch (err) {
+      console.error("PDF generation failed, falling back to print dialog", err);
+      window.print();
+    }
   };
 
   // loading state tracking for clinical animation
@@ -553,7 +430,7 @@ export const Diagnosis = ({ onQuestionIndexChange }) => {
     return () => clearTimeout(timer);
   }, [inputs]);
 
-  const fetchAiRiskScore = async (currentInputs) => {
+  const fetchAiPredictionDetails = async (currentInputs) => {
     try {
       const token = import.meta.env.VITE_AZURE_API_KEY || '';
       if (!token) return null;
@@ -568,11 +445,11 @@ export const Diagnosis = ({ onQuestionIndexChange }) => {
           messages: [
             { 
               role: 'system', 
-              content: 'You are a highly precise clinical endocrine diagnostics engine. Compute the Type 2 Diabetes susceptibility risk percentage (0 to 100) based on the patient biomarkers. Return ONLY a single JSON object matching this schema: {"riskScore": <number>}' 
+              content: 'You are a highly precise clinical endocrine diagnostics engine. Compute the Type 2 Diabetes susceptibility risk percentage (0 to 100) based on the patient biomarkers. Also, calculate individual contribution score (weight) for each biomarker (positive values for risk-increasing factors, negative values for protective/risk-reducing factors). Also, generate 2 to 4 highly personalized clinical insights based on which metrics are abnormal or have high impact. You MUST return ONLY a single JSON object matching this schema: {"riskScore": <number>, "contributions": {"pregnancies": <number>, "glucose": <number>, "bloodPressure": <number>, "skinThickness": <number>, "insulin": <number>, "bmi": <number>, "diabetesPedigree": <number>, "age": <number>}, "insights": [{"key": "glucose", "severity": "high", "note": "<one sentence note explaining the impact>"}]}' 
             },
             { 
               role: 'user', 
-              content: `Compute risk for patient with these biomarkers:
+              content: `Compute details for patient with these biomarkers:
 - Pregnancies: ${currentInputs.pregnancies}
 - Glucose: ${currentInputs.glucose} mg/dL
 - Blood Pressure: ${currentInputs.bloodPressure} mmHg
@@ -586,8 +463,9 @@ Ensure a baseline risk is kept (minimum 2% risk, even if all metrics are lowest,
             }
           ],
           model: 'gpt-4o-mini',
-          temperature: 0.1,
-          max_tokens: 50
+          temperature: 0.0,
+          seed: 42,
+          max_tokens: 600
         })
       });
 
@@ -596,12 +474,12 @@ Ensure a baseline risk is kept (minimum 2% risk, even if all metrics are lowest,
       const content = data.choices[0].message.content.trim();
       const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
       const result = JSON.parse(cleanJson);
-      if (typeof result.riskScore === 'number') {
-        return Math.round(result.riskScore);
+      if (result && typeof result.riskScore === 'number' && result.contributions) {
+        return result;
       }
       return null;
     } catch (e) {
-      console.error("AI risk score fetch failed:", e);
+      console.error("AI details fetch failed:", e);
       return null;
     }
   };
@@ -610,38 +488,55 @@ Ensure a baseline risk is kept (minimum 2% risk, even if all metrics are lowest,
     setIsAnalyzing(true);
     audio.playClick();
     
-    // Start fetching AI risk score asynchronously
-    const aiScorePromise = fetchAiRiskScore(inputs);
+    // Start fetching AI prediction details asynchronously
+    const aiDetailsPromise = fetchAiPredictionDetails(inputs);
 
     // Wait for the 3500ms animation loader
     await new Promise((resolve) => setTimeout(resolve, 3500));
 
-    // Resolve AI score
-    let score = null;
+    // Resolve AI details
+    let aiResult = null;
     try {
-      score = await aiScorePromise;
+      aiResult = await aiDetailsPromise;
     } catch (e) {
       console.error("AI prediction promise rejected:", e);
     }
 
-    // Fallback to local prediction if AI score is not available
+    let score = null;
+    let formattedContribs = null;
+    let insightsList = null;
+
+    if (aiResult) {
+      score = aiResult.riskScore;
+      insightsList = aiResult.insights;
+      
+      if (aiResult.contributions) {
+        formattedContribs = Object.entries(aiResult.contributions).map(([name, value]) => ({
+          name,
+          value: parseFloat(value),
+        }));
+      }
+    }
+
+    // Fallback to local prediction if AI is not available
     if (score === null || isNaN(score)) {
       score = predict(inputs);
+    }
+
+    if (!formattedContribs) {
+      const rawContribs = getContributions(inputs);
+      formattedContribs = Object.entries(rawContribs).map(([name, value]) => ({
+        name,
+        value,
+      }));
     }
 
     // Clamp score to clinically realistic bounds [2%, 98%]
     score = Math.max(2, Math.min(98, score));
 
-    const rawContribs = getContributions(inputs);
-    
-    // Convert contributions object to structured array for FeatureChart
-    const formattedContribs = Object.entries(rawContribs).map(([name, value]) => ({
-      name,
-      value,
-    }));
-
     setRiskScore(score);
     setContributions(formattedContribs);
+    setAiInsights(insightsList);
     setLastPredictedInputs({ ...inputs });
     setHasRun(true);
     setIsAnalyzing(false);
@@ -1094,7 +989,7 @@ Ensure a baseline risk is kept (minimum 2% risk, even if all metrics are lowest,
                     )}
 
                     {/* Clinical Insights */}
-                    <InsightCard inputs={inputs} risk={riskScore} />
+                    <InsightCard inputs={inputs} risk={riskScore} aiInsights={aiInsights} />
                   </div>
                 </div>
 
@@ -1122,7 +1017,7 @@ Ensure a baseline risk is kept (minimum 2% risk, even if all metrics are lowest,
                 {/* Download PDF/HTML Report & Adjust Button Row */}
                 <div className="flex flex-col md:flex-row gap-4 w-full mt-2">
                   <PremiumButton
-                    onClick={downloadHtmlReport}
+                    onClick={downloadPdfReport}
                     variant="primary"
                     className="flex-1 py-4 text-xs font-mono uppercase tracking-wider"
                   >

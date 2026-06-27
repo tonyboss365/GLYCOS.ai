@@ -64,6 +64,9 @@ body {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+  background: var(--bg);
 }
 
 h1,

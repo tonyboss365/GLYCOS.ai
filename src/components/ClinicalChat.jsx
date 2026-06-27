@@ -8,6 +8,7 @@ export const ClinicalChat = ({ inputs, riskScore, contributions }) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef(null);
+  const feedRef = useRef(null);
 
   // Seed the initial welcome message when the report is loaded
   useEffect(() => {
@@ -24,12 +25,21 @@ export const ClinicalChat = ({ inputs, riskScore, contributions }) => {
 
   // Scroll to bottom on new messages (avoiding auto-scroll on initial load)
   const handleTypeScroll = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    if (feedRef.current) {
+      feedRef.current.scrollTop = feedRef.current.scrollHeight;
+    }
   };
 
   useEffect(() => {
     if (messages.length > 1 || isLoading) {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      if (feedRef.current) {
+        setTimeout(() => {
+          feedRef.current.scrollTo({
+            top: feedRef.current.scrollHeight,
+            behavior: 'smooth'
+          });
+        }, 30);
+      }
     }
   }, [messages, isLoading]);
 
@@ -153,7 +163,7 @@ Guidelines:
       </div>
 
       {/* Message Feed */}
-      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 bg-[var(--surface-2)]/30">
+      <div ref={feedRef} className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 bg-[var(--surface-2)]/30">
         {messages.map((msg, idx) => {
           const isAi = msg.role === 'assistant';
           return (
