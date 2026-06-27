@@ -76,7 +76,7 @@ const parseCSV = (text) => {
   return dataset.length > 0 ? dataset : null;
 };
 
-export const DataIntegrationSuite = ({ onApplyInputs }) => {
+export const DataIntegrationSuite = ({ onApplyInputs, onParsingStatusChange }) => {
   const [activeTab, setActiveTab] = useState('parser'); // 'parser' or 'trainer'
   const [reportText, setReportText] = useState('');
   const [parsedLog, setParsedLog] = useState([]);
@@ -215,6 +215,7 @@ export const DataIntegrationSuite = ({ onApplyInputs }) => {
   };
 
   const handleFileImport = async (file) => {
+    if (onParsingStatusChange) onParsingStatusChange(true);
     setParsedLog([{ type: 'warning', label: 'Processing', message: 'Extracting file content...' }]);
     let text = '';
     const fileType = file.name.split('.').pop().toLowerCase();
@@ -302,6 +303,8 @@ export const DataIntegrationSuite = ({ onApplyInputs }) => {
     } catch (error) {
       console.error("File ingestion failed:", error);
       setParsedLog([{ type: 'error', message: `Failed to ingest file: ${error.message}` }]);
+    } finally {
+      if (onParsingStatusChange) onParsingStatusChange(false);
     }
   };
 
@@ -318,42 +321,50 @@ export const DataIntegrationSuite = ({ onApplyInputs }) => {
       return;
     }
 
+    if (onParsingStatusChange) onParsingStatusChange(true);
     setParsedLog([{ type: 'warning', label: 'Parsing', message: 'AI parsing clinical text...' }]);
 
-    const parsedData = await fetchParsedBiomarkersFromAi(reportText);
-    if (parsedData) {
-      const log = [];
-      const validResults = {};
+    try {
+      const parsedData = await fetchParsedBiomarkersFromAi(reportText);
+      if (parsedData) {
+        const log = [];
+        const validResults = {};
 
-      const expectedKeys = [
-        'pregnancies', 'glucose', 'bloodPressure', 
-        'skinThickness', 'insulin', 'bmi', 
-        'diabetesPedigree', 'age'
-      ];
+        const expectedKeys = [
+          'pregnancies', 'glucose', 'bloodPressure', 
+          'skinThickness', 'insulin', 'bmi', 
+          'diabetesPedigree', 'age'
+        ];
 
-      expectedKeys.forEach(key => {
-        if (parsedData[key] !== undefined && parsedData[key] !== null) {
-          const val = parseFloat(parsedData[key]);
-          if (!isNaN(val)) {
-            validResults[key] = val;
-            log.push({ type: 'success', label: key, value: val });
+        expectedKeys.forEach(key => {
+          if (parsedData[key] !== undefined && parsedData[key] !== null) {
+            const val = parseFloat(parsedData[key]);
+            if (!isNaN(val)) {
+              validResults[key] = val;
+              log.push({ type: 'success', label: key, value: val });
+            } else {
+              log.push({ type: 'warning', label: key, message: `Could not parse ${key}.` });
+            }
           } else {
             log.push({ type: 'warning', label: key, message: `Could not parse ${key}.` });
           }
-        } else {
-          log.push({ type: 'warning', label: key, message: `Could not parse ${key}.` });
+        });
+
+        setParsedLog(log);
+
+        if (Object.keys(validResults).length > 0) {
+          onApplyInputs(validResults);
+          audio.playFanfare();
         }
-      });
-
-      setParsedLog(log);
-
-      if (Object.keys(validResults).length > 0) {
-        onApplyInputs(validResults);
-        audio.playFanfare();
+      } else {
+        setParsedLog([{ type: 'error', message: 'AI parsing failed. Running regex extraction...' }]);
+        runRegexFallback(reportText);
       }
-    } else {
-      setParsedLog([{ type: 'error', message: 'AI parsing failed. Running regex extraction...' }]);
-      runRegexFallback(reportText);
+    } catch (e) {
+      console.error("Manual parse failed:", e);
+      setParsedLog([{ type: 'error', message: `Parse failed: ${e.message}` }]);
+    } finally {
+      if (onParsingStatusChange) onParsingStatusChange(false);
     }
   };
 

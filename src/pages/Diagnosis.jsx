@@ -149,6 +149,7 @@ export const Diagnosis = ({ onQuestionIndexChange }) => {
   const [activeStage, setActiveStage] = useState('input'); // 'input' or 'results'
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1);
   const [hasRun, setHasRun] = useState(false);
+  const [isReportParsing, setIsReportParsing] = useState(false);
   
   // debounced live prediction preview state
   const [liveEstimate, setLiveEstimate] = useState(null);
@@ -890,12 +891,12 @@ Ensure a baseline risk is kept (minimum 2% risk, even if all metrics are lowest,
                       </span>
                     </div>
 
-                    <DataIntegrationSuite onApplyInputs={handleApplyInputs} />
+                    <DataIntegrationSuite onApplyInputs={handleApplyInputs} onParsingStatusChange={setIsReportParsing} />
 
                     <div className="flex flex-col gap-3 w-full mt-2">
                       <PremiumButton
                         onClick={runPrediction}
-                        disabled={isAnalyzing}
+                        disabled={isAnalyzing || isReportParsing}
                         variant="primary"
                         className="w-full py-4 text-xs"
                       >
@@ -903,6 +904,11 @@ Ensure a baseline risk is kept (minimum 2% risk, even if all metrics are lowest,
                           <span className="flex items-center justify-center gap-2">
                             <Loader2 size={14} className="animate-spin text-[var(--text-1)]" />
                             Evaluating Parsed Model...
+                          </span>
+                        ) : isReportParsing ? (
+                          <span className="flex items-center justify-center gap-2 text-[var(--cyan-accent)]">
+                            <Loader2 size={14} className="animate-spin" />
+                            Extracting & Parsing Biomarkers...
                           </span>
                         ) : (
                           <span>Compute Risk with Integrated Data &rarr;</span>
