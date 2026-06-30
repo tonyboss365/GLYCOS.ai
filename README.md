@@ -1,4 +1,5 @@
 # GLYCOS AI — Clinical Metabolic Susceptibility Engine
+#live link: https://glycos-ai.vercel.app/
 
 GLYCOS AI is a client-side metabolic intelligence platform designed to compute susceptibility indexes using standardized multivariate logistic regression. The engine operates entirely in the browser, featuring clinical text parsing, an in-browser Gradient Descent solver, and interactive visualization charts.
 
